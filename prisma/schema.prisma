@@ -1,0 +1,138 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  customer
+  provider
+  admin
+}
+
+enum UserStatus {
+  active
+  suspended
+}
+
+enum OrderStatus {
+  PLACED
+  CONFIRMED
+  PAID
+  PICKED_UP
+  RETURNED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  pending
+  completed
+  failed
+}
+
+Users Table
+model User {
+  id        String     @id @default(uuid())
+  name      String
+  email     String     @unique
+  password  String
+  role      Role       @default(customer)
+  status    UserStatus @default(active)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  // Relations
+  gearItems GearItem[] 
+  rentals   RentalOrder[]
+  reviews   Review[]
+}
+
+// Categories Table
+model Category {
+  id        String     @id @default(uuid())
+  name      String     @unique
+  slug      String     @unique
+  gearItems GearItem[]
+}
+
+// GearItems Table
+model GearItem {
+  id           String      @id @default(uuid())
+  providerId   String
+  categoryId   String
+  title        String
+  description  String
+  brand        String
+  pricePerDay  Float
+  stockQuantity Int
+  isAvailable  Boolean     @default(true)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  // Relations
+  provider   User          @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  category   Category      @relation(fields: [categoryId], references: [id])
+  orderItems OrderItem[]
+  reviews    Review[]
+}
+
+// RentalOrders Table
+model RentalOrder {
+  id         String      @id @default(uuid())
+  customerId String
+  startDate  DateTime
+  endDate    DateTime
+  totalPrice Float
+  status     OrderStatus @default(PLACED)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  // Relations
+  customer   User        @relation(fields: [customerId], references: [id])
+  orderItems OrderItem[]
+  payments   Payment[]
+}
+
+// OrderItems Table
+model OrderItem {
+  id        String   @id @default(uuid())
+  orderId   String
+  gearId    String
+  quantity  Int
+
+  // Relations
+  order     RentalOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  gear      GearItem    @relation(fields: [gearId], references: [id])
+}
+
+// Payments Table
+model Payment {
+  id            String        @id @default(uuid())
+  orderId       String
+  transactionId String        @unique
+  amount        Float
+  method        String        // e.g., "Stripe" or "SSLCommerz"
+  status        PaymentStatus @default(pending)
+  paidAt        DateTime?
+  createdAt     DateTime      @default(now())
+
+  // Relations
+  order         RentalOrder   @relation(fields: [orderId], references: [id])
+}
+
+// Reviews Table
+model Review {
+  id         String   @id @default(uuid())
+  gearId     String
+  customerId String
+  rating     Int
+  comment    String
+  createdAt  DateTime @default(now())
+
+  // Relations
+  gear       GearItem @relation(fields: [gearId], references: [id], onDelete: Cascade)
+  customer   User     @relation(fields: [customerId], references: [id])
+}
