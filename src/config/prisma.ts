@@ -1,7 +1,12 @@
-import { defineConfig } from '@prisma/config';
+// Express Route Handler-এর উদাহরণ
+export const getUserById = async (req: Request, res: Response) => {
+  const { id } = req.params; // এটি string
 
-export default defineConfig({
-  datasource: {
-    url: process.env.DATABASE_URL,
-  },
-});
+  const user = await prisma.user.findUnique({
+    where: { 
+      id: parseInt(id, 10) // ✅ string থেকে integer-এ রূপান্তর
+    },
+  });
+  
+  // ... বাকি কোড
+};

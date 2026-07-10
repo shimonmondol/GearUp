@@ -1,12 +1,16 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import prisma from "../config/prisma.js";
+import prisma from "../config/prisma";
 import { AppError } from "../utils/AppError.js";
 
 const generateToken = (id: string, role: string) => {
-  return jwt.sign({ id, role }, process.env.JWT_SECRET || "fallback_secret", {
-    expiresIn: process.env.JWT_EXPIRES_IN || "7d",
-  });
+return jwt.sign(
+    { id, role }, 
+    process.env.JWT_SECRET || "fallback_secret", 
+    {
+      expiresIn: (process.env.JWT_EXPIRES_IN || "7d") as any,
+    }
+  );
 };
 
 export const registerUser = async (userData: any) => {
