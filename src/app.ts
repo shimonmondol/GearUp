@@ -14,10 +14,10 @@ app.use("/api/auth", authRouter);
 app.use(globalErrorHandler);
 
 // Routes Placeholder (We will add routes here later)
-app.get("/health", (req, res) => {
+app.get("/", (req, res) => {
   res
     .status(200)
-    .json({ status: "success", message: "GearUp Server is healthy!" });
+    .json({ status: "success", message: "GearUp Server is Working" });
 });
 
 // Global Error Handler

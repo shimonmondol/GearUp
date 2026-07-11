@@ -18,11 +18,10 @@ export const getGears = catchAsync(async (req: Request, res: Response) => {
     .json({ status: "success", results: gears.length, data: { gears } });
 });
 
-export const getGearDetails = catchAsync(
-  async (req: Request, res: Response) => {
-    const gear = await gearService.getGearItemById(req.params.id);
-    if (!gear) throw new AppError("No gear item found with that ID", 404);
-
-    res.status(200).json({ status: "success", data: { gear } });
-  },
-);
+export const getGearDetails = catchAsync(async (req: Request<{ id: string }>, res: Response) => {
+  const gear = await gearService.getGearItemById(req.params.id);
+  
+  if (!gear) throw new AppError('No gear item found with that ID', 404);
+  
+  res.status(200).json({ status: 'success', data: { gear } });
+});
