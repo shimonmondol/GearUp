@@ -4,7 +4,7 @@ import * as gearService from '../services/gear.service.js';
 import { AppError } from '../utils/AppError.js';
 
 export const addGear = catchAsync(async (req: Request, res: Response) => {
-  if (!req.user) throw new AppError('Authentication required', 401);
+  if (!req.user) throw new AppError(401, 'Authentication required');
   
   const gear = await gearService.createGear(req.body, req.user.id);
   res.status(201).json({ status: 'success', data: { gear } });
@@ -18,7 +18,7 @@ export const getGears = catchAsync(async (req: Request, res: Response) => {
 export const getGearDetails = catchAsync(async (req: Request<{ id: string }>, res: Response) => {
   const gear = await gearService.getGearItemById(req.params.id);
   
-  if (!gear) throw new AppError('No gear item found with that ID', 404);
+  if (!gear) throw new AppError(404, 'No gear item found with that ID');
   
   res.status(200).json({ status: 'success', data: { gear } });
 });

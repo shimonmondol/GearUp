@@ -4,7 +4,7 @@ import { AppError } from "../utils/AppError.js";
 import prisma from "../config/prisma.js";
 
 const generateToken = (id: string, role: string) => {
-return jwt.sign(
+  return jwt.sign(
     { id, role }, 
     process.env.JWT_SECRET || "fallback_secret", 
     {
@@ -34,11 +34,11 @@ export const loginUser = async (credentials: any) => {
   });
 
   if (!user || !(await bcrypt.compare(credentials.password, user.password))) {
-    throw new AppError("Incorrect email or password", 401);
+    throw new AppError(401, "Incorrect email or password");
   }
 
   if (!user.isActive) {
-    throw new AppError("Your account has been suspended by Admin", 403);
+    throw new AppError(403, "Your account has been suspended by Admin");
   }
 
   const token = generateToken(user.id, user.role);

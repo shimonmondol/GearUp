@@ -1,26 +1,27 @@
-import express from "express";
-import cors from "cors";
-import dotenv from "dotenv";
-import { globalErrorHandler } from "./middlewares/error.middleware.js";
-import authRouter from './routes/auth.routes.js';
-
-dotenv.config();
+import express from 'express';
+import cors from 'cors';
+import authRoutes from './routes/auth.routes.js';
+import { globalErrorHandler } from './middlewares/error.middleware.js';
+import { AppError } from './utils/AppError.js';
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
-app.use("/api/auth", authRouter);
-app.use(globalErrorHandler);
 
-// Routes Placeholder (We will add routes here later)
-app.get("/", (req, res) => {
-  res
-    .status(200)
-    .json({ status: "success", message: "GearUp Server is Working" });
+app.get('/', (req, res) => {
+  res.status(200).json({
+    status: 'success',
+    message: 'Welcome to the GearUp API Server'
+  });
 });
 
-// Global Error Handler
+app.use('/api/auth', authRoutes);
+
+app.use((req, res, next) => {
+  next(new AppError(404, `Can't find ${req.originalUrl} on this server!`));
+});
+
 app.use(globalErrorHandler);
 
-export default app;
+export { app };
