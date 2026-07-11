@@ -1,18 +1,20 @@
 import { Request, Response } from 'express';
 import prisma from '../config/prisma';
-import { rentalSchema } from '../validations/auth.validation';
 import { AppError } from '../utils/AppError';
 import Stripe from 'stripe';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_mock', {
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
   apiVersion: '2025-01-27' as any,
 });
 
 export const createRentalOrder = async (req: Request, res: Response) => {
-  const validatedData = rentalSchema.parse(req.body || {});
-  const { startDate, endDate, gearItems } = validatedData;
+  const { startDate, endDate, gearItems } = req.body || {};
   const user = (req as any).user;
-  
+
+  if (!startDate || !endDate || !gearItems || gearItems.length === 0) {
+    throw new AppError(400, 'Missing required fields for rental order');
+  }
+
   let total = 0;
   const days = Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24));
 
@@ -49,14 +51,13 @@ export const createRentalOrder = async (req: Request, res: Response) => {
     return newOrder;
   });
 
-  // Stripe Checkout Session
   const session = await stripe.checkout.sessions.create({
     payment_method_types: ['card'],
     line_items: [{
       price_data: {
         currency: 'usd',
         product_data: { name: `GearUp Rental Order #${order.id}` },
-        unit_amount: Math.round(total * 100),
+        unit_amount: Math.round(total * 100), // সেন্ট-এ কনভার্ট করা
       },
       quantity: 1,
     }],
@@ -68,6 +69,7 @@ export const createRentalOrder = async (req: Request, res: Response) => {
 
   res.status(201).json({
     success: true,
+    message: 'Order placed successfully. Complete payment via link.',
     checkoutUrl: session.url,
     orderId: order.id
   });
