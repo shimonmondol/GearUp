@@ -1,8 +1,8 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import { globalErrorHandler } from "./middlewares/error.middleware";
-import authRouter from './routes/auth.routes';
+import { globalErrorHandler } from "./middlewares/error.middleware.js";
+import authRouter from './routes/auth.routes.js';
 
 dotenv.config();
 

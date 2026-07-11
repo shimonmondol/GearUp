@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import prisma from "../config/prisma";
 import { AppError } from "../utils/AppError.js";
+import prisma from "../config/prisma.js";
 
 const generateToken = (id: string, role: string) => {
 return jwt.sign(
