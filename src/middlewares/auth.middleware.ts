@@ -3,7 +3,6 @@ import jwt from 'jsonwebtoken';
 import { AppError } from '../utils/AppError';
 import { Role } from '@prisma/client';
 
-// টোকেন ভেরিফাই করার মিডলওয়্যার
 export const protect = (req: Request, res: Response, next: NextFunction): void => {
   let token: string | undefined;
   
@@ -17,8 +16,7 @@ export const protect = (req: Request, res: Response, next: NextFunction): void =
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret') as { id: string; role: Role };
-    
-    // Request অবজেক্টে ইউজার পেলোড সেট করা
+  
     (req as any).user = decoded;
     next();
   } catch (error) {
@@ -26,7 +24,6 @@ export const protect = (req: Request, res: Response, next: NextFunction): void =
   }
 };
 
-// রোল চেক করার মিডলওয়্যার (নিশ্চিত হোন export const restrictTo লেখা আছে)
 export const restrictTo = (...roles: Role[]) => {
   return (req: Request, res: Response, next: NextFunction): void => {
     const user = (req as any).user;

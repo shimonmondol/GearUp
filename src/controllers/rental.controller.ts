@@ -57,7 +57,7 @@ export const createRentalOrder = async (req: Request, res: Response) => {
       price_data: {
         currency: 'usd',
         product_data: { name: `GearUp Rental Order #${order.id}` },
-        unit_amount: Math.round(total * 100), // সেন্ট-এ কনভার্ট করা
+        unit_amount: Math.round(total * 100),
       },
       quantity: 1,
     }],
