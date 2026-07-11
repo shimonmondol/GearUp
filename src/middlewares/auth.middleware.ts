@@ -1,56 +1,38 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { AppError } from '../utils/AppError.ts';
-import { catchAsync } from '../utils/CatchAsync.ts';
-import prisma from '../config/prisma.ts';
-import { Role } from '@prisma/client'; 
+import { AppError } from '../utils/AppError';
+import { Role } from '@prisma/client';
 
-declare global {
-  namespace Express {
-    interface Request {
-      user?: {
-        id: string;
-        role: Role; // 💡 ২. এখানে সরাসরি Prisma-র Role ব্যবহার করুন
-      };
-    }
-  }
-}
-
-interface JwtPayload {
-  id: string;
-  role: Role; // 💡 ৩. এখানেও Prisma-র Role ব্যবহার করুন
-}
-
-export const protect = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
+// টোকেন ভেরিফাই করার মিডলওয়্যার
+export const protect = (req: Request, res: Response, next: NextFunction): void => {
   let token: string | undefined;
-
+  
   if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
     token = req.headers.authorization.split(' ')[1];
   }
 
   if (!token) {
-    throw new AppError(401, 'You are not logged in! Please log in to get access.');
+    throw new AppError(401, 'You are not logged in. Please log in to get access.');
   }
 
-  const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret') as JwtPayload;
-
-  const currentUser = await prisma.user.findUnique({
-    where: { id: decoded.id },
-  });
-
-  if (!currentUser) {
-    throw new AppError(401, 'The user belonging to this token no longer exists.');
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret') as { id: string; role: Role };
+    
+    // Request অবজেক্টে ইউজার পেলোড সেট করা
+    (req as any).user = decoded;
+    next();
+  } catch (error) {
+    throw new AppError(401, 'Token is invalid or expired. Please log in again.');
   }
+};
 
-  if (!currentUser.isActive) {
-    throw new AppError(403, 'This user account has been suspended.');
-  }
-
-  // 💡 ৪. এখন currentUser.role সরাসরি ম্যাচ করবে, কোনো টাইপ এরর দেবে না
-  req.user = {
-    id: currentUser.id,
-    role: currentUser.role, 
+// রোল চেক করার মিডলওয়্যার (নিশ্চিত হোন export const restrictTo লেখা আছে)
+export const restrictTo = (...roles: Role[]) => {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const user = (req as any).user;
+    if (!user || !roles.includes(user.role)) {
+      throw new AppError(403, 'You do not have permission to perform this action.');
+    }
+    next();
   };
-  
-  next();
-});
+};

@@ -1,26 +1,78 @@
 import { Request, Response } from "express";
-import { catchAsync } from "../utils/CatchAsync.ts";
-import * as gearService from "../services/gear.service.ts";
-import { AppError } from "../utils/AppError.ts";
+import prisma from "../config/prisma.ts";
+import { gearSchema } from "../validations/auth.validation.ts";
+import { AppError } from "../utils/AppError";
 
-export const addGear = catchAsync(async (req: Request, res: Response) => {
-  if (!req.user) throw new AppError(401, "Authentication required");
+export const getGears = async (req: Request, res: Response) => {
+  const { category, brand, minPrice, maxPrice } = req.query;
 
-  const gear = await gearService.createGear(req.body, req.user.id);
-  res.status(201).json({ status: "success", data: { gear } });
-});
+  const gears = await prisma.gearItem.findMany({
+    where: {
+      isAvailable: true,
+      brand: brand ? String(brand) : undefined,
+      ...(category && { category: { name: String(category) } }),
+      ...((minPrice || maxPrice) && {
+        pricePerDay: {
+          gte: minPrice ? Number(minPrice) : undefined,
+          lte: maxPrice ? Number(maxPrice) : undefined,
+        },
+      }),
+    },
+    include: { category: true },
+  });
 
-export const getGears = catchAsync(async (req: Request, res: Response) => {
-  const gears = await gearService.getAllGearItems(req.query);
-  res
-    .status(200)
-    .json({ status: "success", results: gears.length, data: { gears } });
-});
+  res.json({ success: true, data: gears });
+};
 
-export const getGearDetails = catchAsync(async (req: Request<{ id: string }>, res: Response) => {
-  const gear = await gearService.getGearItemById(req.params.id);
+export const createGear = async (req: Request, res: Response) => {
+  const validatedData = gearSchema.parse(req.body || {});
+  const user = (req as any).user;
 
-  if (!gear) throw new AppError(404, 'No gear item found with that ID');
-  
-  res.status(200).json({ status: 'success', data: { gear } });
-});
+  const gear = await prisma.gearItem.create({
+    data: { ...validatedData, providerId: user.id },
+  });
+
+  res.status(201).json({ success: true, data: gear });
+};
+
+export const updateGear = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const user = (req as any).user;
+
+  const gear = await prisma.gearItem.findUnique({
+    where: {
+      id: String(id),
+    },
+  });
+  if (!gear) throw new AppError(404, "Gear item not found");
+  if (gear.providerId !== user.id) throw new AppError(403, "Unauthorized");
+
+  const updated = await prisma.gearItem.update({
+    where: {
+      id: String(id),
+    },
+    data: req.body,
+  });
+
+  res.json({ success: true, data: updated });
+};
+
+export const deleteGear = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const user = (req as any).user;
+
+  const gear = await prisma.gearItem.findUnique({
+    where: {
+      id: String(id),
+    },
+  });
+  if (!gear) throw new AppError(404, "Gear item not found");
+  if (gear.providerId !== user.id) throw new AppError(403, "Unauthorized");
+
+  await prisma.gearItem.delete({
+    where: {
+      id: String(id),
+    },
+  });
+  res.json({ success: true, message: "Gear removed successfully" });
+};
