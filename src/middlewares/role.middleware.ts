@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { Role } from '@prisma/client';
-import { AppError } from '../utils/AppError.js';
+import { AppError } from '../utils/AppError.ts';
 
 export const restrictTo = (...roles: Role[]) => {
   return (req: Request, res: Response, next: NextFunction) => {

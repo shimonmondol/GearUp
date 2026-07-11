@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
-import { catchAsync } from '../utils/CatchAsync.js';
-import * as gearService from '../services/gear.service.js';
-import { AppError } from '../utils/AppError.js';
+import { catchAsync } from '../utils/CatchAsync.ts';
+import * as gearService from '../services/gear.service.ts';
+import { AppError } from '../utils/AppError.ts';
 
 export const addGear = catchAsync(async (req: Request, res: Response) => {
   if (!req.user) throw new AppError(401, 'Authentication required');

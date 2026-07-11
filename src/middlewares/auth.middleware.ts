@@ -1,9 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { AppError } from '../utils/AppError.js';
-import { catchAsync } from '../utils/CatchAsync.js';
-import prisma from '../config/prisma.js';
-// 💡 ১. আপনার প্রিজমা ক্লায়েন্ট থেকে Role এনামটি ইম্পোর্ট করুন
+import { AppError } from '../utils/AppError.ts';
+import { catchAsync } from '../utils/CatchAsync.ts';
+import prisma from '../config/prisma.ts';
 import { Role } from '@prisma/client'; 
 
 declare global {

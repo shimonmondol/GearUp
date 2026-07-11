@@ -1,4 +1,4 @@
-import prisma from '../config/prisma.js';
+import prisma from '../config/prisma.ts';
 
 export const createGear = async (gearData: any, providerId: string) => {
   return await prisma.gearItem.create({
