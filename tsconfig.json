@@ -2,7 +2,7 @@
   "compilerOptions": {
     "target": "ES2022",
     "module": "ESNext",
-    "moduleResolution": "bundler", /* bundler মোডেই সরাসরি .ts সাপোর্ট করার জন্য নিচের ৩টি লাইন লাগবে */
+    "moduleResolution": "bundler",
     "lib": ["ES2022"],
     "outDir": "./dist",
     "rootDir": "./src",
