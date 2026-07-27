@@ -1,4 +1,4 @@
-# ⚙️ GearUp - Camera & Gear Rental API
+# ⚙️ GearUp - Gear Rental API
 
 GearUp is a robust, RESTful backend API built with **Node.js**, **TypeScript**, **Express.js**, and **Prisma ORM**. It provides a complete camera and equipment rental system with role-based access control, real-time inventory management, automated pricing calculation, and native **SSLCommerz** payment gateway integration for Bangladesh.
 
