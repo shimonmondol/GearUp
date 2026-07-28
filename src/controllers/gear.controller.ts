@@ -3,6 +3,7 @@ import prisma from "../config/prisma.ts";
 import { gearSchema } from "../validations/auth.validation.ts";
 import { AppError } from "../utils/AppError";
 
+// 1. Get All Gears (with filters)
 export const getGears = async (req: Request, res: Response) => {
   const { category, brand, minPrice, maxPrice } = req.query;
 
@@ -21,9 +22,38 @@ export const getGears = async (req: Request, res: Response) => {
     include: { category: true },
   });
 
-  res.json({ success: true, data: gears });
+  res.json({
+    success: true,
+    message: "All Gear items Show successfully!",
+    data: gears,
+  });
 };
 
+// 2. Get Single Gear by ID
+export const getGearById = async (req: Request, res: Response) => {
+  const { id } = req.params;
+
+  const gear = await prisma.gearItem.findUnique({
+    where: {
+      id: String(id),
+    },
+    include: {
+      category: true,
+    },
+  });
+
+  if (!gear) {
+    throw new AppError(404, "Gear item not found");
+  }
+
+  res.json({
+    success: true,
+    message: "Gear item details successfully!",
+    data: gear,
+  });
+};
+
+// 3. Create Gear
 export const createGear = async (req: Request, res: Response) => {
   const validatedData = gearSchema.parse(req.body || {});
   const user = (req as any).user;
@@ -32,9 +62,14 @@ export const createGear = async (req: Request, res: Response) => {
     data: { ...validatedData, providerId: user.id },
   });
 
-  res.status(201).json({ success: true, data: gear });
+  res.status(201).json({
+    success: true,
+    message: "Gear item created successfully!",
+    data: gear,
+  });
 };
 
+// 4. Update Gear
 export const updateGear = async (req: Request, res: Response) => {
   const { id } = req.params;
   const user = (req as any).user;
@@ -54,9 +89,14 @@ export const updateGear = async (req: Request, res: Response) => {
     data: req.body,
   });
 
-  res.json({ success: true, data: updated });
+  res.json({ 
+    success: true, 
+    message: "Gear item updated successfully!",
+    data: updated 
+  });
 };
 
+// 5. Delete Gear
 export const deleteGear = async (req: Request, res: Response) => {
   const { id } = req.params;
   const user = (req as any).user;
@@ -74,5 +114,9 @@ export const deleteGear = async (req: Request, res: Response) => {
       id: String(id),
     },
   });
-  res.json({ success: true, message: "Gear removed successfully" });
+
+  res.json({
+    success: true,
+    message: "Gear item deleted successfully!",
+  });
 };
