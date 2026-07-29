@@ -1,5 +1,4 @@
 import { Request, Response } from "express";
-// @ts-ignore
 import SSLCommerzPayment from "sslcommerz-lts";
 import prisma from "../config/prisma";
 import { AppError } from "../utils/AppError";
@@ -8,7 +7,6 @@ const store_id = process.env.SSL_STORE_ID || "testbox";
 const store_passwd = process.env.SSL_STORE_PASSWORD || "qwerty";
 const is_live = process.env.SSL_IS_LIVE === "true";
 
-// ১. পেমেন্ট ইনিশিয়েট করার হ্যান্ডলার
 export const initiatePayment = async (req: Request, res: Response) => {
   const orderId = String(req.params.orderId || "");
   const user = (req as any).user;
@@ -59,7 +57,6 @@ export const initiatePayment = async (req: Request, res: Response) => {
   }
 };
 
-// ২. পেমেন্ট সাকসেস কলব্যাক (SSLCommerz POST করে)
 export const paymentSuccess = async (req: Request, res: Response) => {
   const orderId = String(req.params.orderId || "");
   const { val_id, tran_id } = req.body;
@@ -88,7 +85,6 @@ export const paymentSuccess = async (req: Request, res: Response) => {
   );
 };
 
-// ৩. পেমেন্ট ফেল কলব্যাক
 export const paymentFail = async (req: Request, res: Response) => {
   const orderId = String(req.params.orderId || "");
 
@@ -102,7 +98,6 @@ export const paymentFail = async (req: Request, res: Response) => {
   );
 };
 
-// ৪. পেমেন্ট ক্যানসেল কলব্যাক
 export const paymentCancel = async (req: Request, res: Response) => {
   const orderId = String(req.params.orderId || "");
 
@@ -116,7 +111,6 @@ export const paymentCancel = async (req: Request, res: Response) => {
   );
 };
 
-// ৫. IPN (Instant Payment Notification)
 export const paymentIPN = async (req: Request, res: Response) => {
   const { status, val_id } = req.body;
 
@@ -128,7 +122,6 @@ export const paymentIPN = async (req: Request, res: Response) => {
   res.status(200).send("IPN Received");
 };
 
-// ৬. পেমেন্ট স্ট্যাটাস ট্র্যাকিং এন্ডপয়েন্ট (GET)
 export const getPaymentStatus = async (req: Request, res: Response) => {
   const orderId = String(req.params.orderId || "");
 

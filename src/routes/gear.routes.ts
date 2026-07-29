@@ -1,5 +1,4 @@
 import { Router } from "express";
-// 1. আপনার কন্ট্রোলার থেকে getGearById (বা getSingleGear) ইম্পোর্ট করুন
 import {
   createGear,
   deleteGear,
