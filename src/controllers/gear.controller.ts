@@ -80,7 +80,14 @@ export const updateGear = async (req: Request, res: Response) => {
     },
   });
   if (!gear) throw new AppError(404, "Gear item not found");
-  if (gear.providerId !== user.id) throw new AppError(403, "Unauthorized");
+
+  if (
+    gear.providerId !== user.id &&
+    user.role !== "admin" &&
+    user.role !== "ADMIN"
+  ) {
+    throw new AppError(403, "Unauthorized");
+  }
 
   const updated = await prisma.gearItem.update({
     where: {
@@ -89,14 +96,14 @@ export const updateGear = async (req: Request, res: Response) => {
     data: req.body,
   });
 
-  res.json({ 
-    success: true, 
+  res.json({
+    success: true,
     message: "Gear item updated successfully!",
-    data: updated 
+    data: updated,
   });
 };
 
-// 5. Delete Gear
+// 5. Delete Gear (Safe Delete Handling)
 export const deleteGear = async (req: Request, res: Response) => {
   const { id } = req.params;
   const user = (req as any).user;
@@ -107,16 +114,46 @@ export const deleteGear = async (req: Request, res: Response) => {
     },
   });
   if (!gear) throw new AppError(404, "Gear item not found");
-  if (gear.providerId !== user.id) throw new AppError(403, "Unauthorized");
 
-  await prisma.gearItem.delete({
-    where: {
-      id: String(id),
-    },
-  });
+  if (
+    gear.providerId !== user.id &&
+    user.role !== "admin" &&
+    user.role !== "ADMIN"
+  ) {
+    throw new AppError(403, "Unauthorized");
+  }
 
-  res.json({
-    success: true,
-    message: "Gear item deleted successfully!",
-  });
+  try {
+    await prisma.gearItem.delete({
+      where: {
+        id: String(id),
+      },
+    });
+
+    return res.json({
+      success: true,
+      message: "Gear item deleted successfully!",
+    });
+  } catch (error: any) {
+    if (
+      error.code === "P2003" ||
+      error.message?.includes("foreign key constraint")
+    ) {
+      await prisma.gearItem.update({
+        where: { id: String(id) },
+        data: {
+          isAvailable: false,
+          stockQuantity: 0,
+        },
+      });
+
+      return res.json({
+        success: true,
+        message:
+          "Gear item removed from available listings successfully",
+      });
+    }
+
+    throw error;
+  }
 };

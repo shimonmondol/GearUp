@@ -35,15 +35,15 @@ enum PaymentStatus {
 
 // Users Table
 model User {
-  id        String      @id @default(uuid())
+  id        String     @id @default(uuid())
   name      String
-  email     String      @unique
+  email     String     @unique
   password  String
-  role      Role        @default(customer)
-  status    UserStatus  @default(active)
-  isActive  Boolean     @default(true)
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
+  role      Role       @default(customer)
+  status    UserStatus @default(active)
+  isActive  Boolean    @default(true)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
 
   // Relations
   gearItems GearItem[]
@@ -61,7 +61,7 @@ model Category {
 
 // GearItems Table
 model GearItem {
-  id            String      @id @default(uuid())
+  id            String   @id @default(uuid())
   providerId    String
   categoryId    String
   title         String
@@ -69,9 +69,9 @@ model GearItem {
   brand         String
   pricePerDay   Float
   stockQuantity Int
-  isAvailable   Boolean     @default(true)
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  isAvailable   Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   // Relations
   provider   User        @relation(fields: [providerId], references: [id], onDelete: Cascade)
@@ -97,7 +97,7 @@ model RentalOrder {
   payments   Payment[]
 }
 
-// OrderItems Table
+// OrderItems Table (Fixed Duplicate & Missing Fields)
 model OrderItem {
   id       String @id @default(uuid())
   orderId  String
@@ -106,7 +106,7 @@ model OrderItem {
 
   // Relations
   order RentalOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  gear  GearItem    @relation(fields: [gearId], references: [id])
+  gear  GearItem    @relation(fields: [gearId], references: [id], onDelete: Cascade)
 }
 
 // Payments Table
