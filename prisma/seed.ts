@@ -4,11 +4,13 @@ import bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 
 async function main() {
-  const hashedPassword = await bcrypt.hash('AdminSecure2026!', 10);
+  const hashedPassword = await bcrypt.hash('admin123', 10);
   
   const admin = await prisma.user.upsert({
     where: { email: 'admin@gearup.com' },
-    update: {},
+    update: {
+      password: hashedPassword,
+    },
     create: {
       name: 'System Admin',
       email: 'admin@gearup.com',
@@ -24,7 +26,7 @@ async function main() {
 
   console.log('✅ Seeding successful!');
   console.log('🔒 Admin Email: admin@gearup.com');
-  console.log('🔒 Admin Password: AdminSecure2026!');
+  console.log('🔒 Admin Password: admin123');
 }
 
 main()
