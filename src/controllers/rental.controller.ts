@@ -237,3 +237,44 @@ export const updateOrderStatus = async (req: Request, res: Response) => {
     data: updatedOrder,
   });
 };
+
+// 6. Delete a Rental Order (Admin Only)
+export const deleteRentalOrder = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const user = (req as any).user;
+  const order = await prisma.rentalOrder.findUnique({
+    where: { id: String(id) },
+    include: { orderItems: true },
+  });
+
+  if (!order) {
+    throw new AppError(404, "Rental order not found");
+  }
+
+  const isAdmin = user.role === "admin" || user.role === "ADMIN";
+  if (order.customerId !== user.id && !isAdmin) {
+    throw new AppError(403, "You do not have permission to delete this order");
+  }
+
+  await prisma.$transaction(async (tx) => {
+    for (const item of order.orderItems) {
+      await tx.gearItem.update({
+        where: { id: item.gearId },
+        data: { stockQuantity: { increment: item.quantity } },
+      });
+    }
+
+    await tx.orderItem.deleteMany({
+      where: { orderId: String(id) },
+    });
+
+    await tx.rentalOrder.delete({
+      where: { id: String(id) },
+    });
+  });
+
+  res.status(200).json({
+    success: true,
+    message: "Rental order deleted successfully and stock quantity restored",
+  });
+};

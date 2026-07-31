@@ -7,30 +7,20 @@ const store_id = process.env.SSL_STORE_ID || "testbox";
 const store_passwd = process.env.SSL_STORE_PASSWORD || "qwerty";
 const is_live = process.env.SSL_IS_LIVE === "true";
 
-export const initiatePayment = async (req: Request, res: Response) => {
-  const orderId = String(req.params.orderId || "");
-  const user = (req as any).user;
-
-  const order = await prisma.rentalOrder.findUnique({
-    where: { id: orderId },
-  });
-
-  if (!order) {
-    throw new AppError(404, "Rental order not found");
-  }
-
+// Helper function: SSLCommerz Session Generator
+const initSSLCommerzSession = async (order: any, user: any) => {
   const tran_id = `TRAN_${order.id.slice(0, 8)}_${Date.now()}`;
 
-  const data = {
+  const paymentData = {
     total_amount: order.totalPrice,
     currency: "BDT",
     tran_id: tran_id,
-    success_url: `${process.env.SERVER_BASE_URL || "http://localhost:5000"}/api/payments/success/${order.id}?tran_id=${tran_id}`,
-    fail_url: `${process.env.SERVER_BASE_URL || "http://localhost:5000"}/api/payments/fail/${order.id}?tran_id=${tran_id}`,
-    cancel_url: `${process.env.SERVER_BASE_URL || "http://localhost:5000"}/api/payments/cancel/${order.id}?tran_id=${tran_id}`,
-    ipn_url: `${process.env.SERVER_BASE_URL || "http://localhost:5000"}/api/payments/ipn`,
+    success_url: `${process.env.SERVER_BASE_URL || "http://localhost:5000"}/api/payments/confirm?orderId=${order.id}&status=success`,
+    fail_url: `${process.env.SERVER_BASE_URL || "http://localhost:5000"}/api/payments/confirm?orderId=${order.id}&status=fail`,
+    cancel_url: `${process.env.SERVER_BASE_URL || "http://localhost:5000"}/api/payments/confirm?orderId=${order.id}&status=cancel`,
+    ipn_url: `${process.env.SERVER_BASE_URL || "http://localhost:5000"}/api/payments/confirm`,
     shipping_method: "NO",
-    product_name: `GearUp Rental Order #${order.id}`,
+    product_name: `Rental Order #${order.id}`,
     product_category: "Gear Rental",
     product_profile: "general",
     cus_name: user?.name || "Customer Name",
@@ -43,109 +33,174 @@ export const initiatePayment = async (req: Request, res: Response) => {
   };
 
   const sslcz = new SSLCommerzPayment(store_id, store_passwd, is_live);
-  const apiResponse = await sslcz.init(data);
+  const sslResponse = await sslcz.init(paymentData);
 
-  if (apiResponse?.GatewayPageURL) {
-    res.status(200).json({
-      success: true,
-      message: "Payment session initiated",
-      gatewayUrl: apiResponse.GatewayPageURL,
-      tran_id,
-    });
-  } else {
+  if (!sslResponse?.GatewayPageURL) {
     throw new AppError(500, "Failed to create SSLCommerz payment session");
   }
+
+  return {
+    paymentUrl: sslResponse.GatewayPageURL,
+    transactionId: tran_id,
+  };
 };
 
-export const paymentSuccess = async (req: Request, res: Response) => {
-  const orderId = String(req.params.orderId || "");
-  const { val_id, tran_id } = req.body;
+// 1. Create Payment Session via Request Body ({ orderId })
+export const createPaymentSession = async (req: Request, res: Response) => {
+  const { orderId } = req.body;
+  const user = (req as any).user;
 
-  const sslcz = new SSLCommerzPayment(store_id, store_passwd, is_live);
-  const validationResponse = await sslcz.validate({ val_id });
-
-  if (
-    validationResponse?.status === "VALID" ||
-    validationResponse?.status === "VALIDATED"
-  ) {
-    await prisma.rentalOrder.update({
-      where: { id: orderId },
-      data: {
-        status: "PAID" as any,
-      },
-    });
-
-    return res.redirect(
-      `${process.env.CLIENT_BASE_URL || "http://localhost:3000"}/payment/success?orderId=${orderId}&tran_id=${tran_id}`,
-    );
+  if (!orderId) {
+    throw new AppError(400, "Order ID is required");
   }
 
-  return res.redirect(
-    `${process.env.CLIENT_BASE_URL || "http://localhost:3000"}/payment/fail?orderId=${orderId}`,
-  );
-};
-
-export const paymentFail = async (req: Request, res: Response) => {
-  const orderId = String(req.params.orderId || "");
-
-  await prisma.rentalOrder.update({
-    where: { id: orderId },
-    data: { status: "FAILED" as any },
+  const order = await prisma.rentalOrder.findUnique({
+    where: { id: String(orderId) },
+    include: { customer: true },
   });
 
-  return res.redirect(
-    `${process.env.CLIENT_BASE_URL || "http://localhost:3000"}/payment/fail?orderId=${orderId}`,
-  );
+  if (!order) {
+    throw new AppError(404, "Rental order not found");
+  }
+
+  if (order.customerId !== user.id) {
+    throw new AppError(403, "You are not authorized to pay for this order");
+  }
+
+  const session = await initSSLCommerzSession(order, user);
+
+  res.status(200).json({
+    success: true,
+    message: "Payment session initialized successfully",
+    ...session,
+  });
 };
 
-export const paymentCancel = async (req: Request, res: Response) => {
-  const orderId = String(req.params.orderId || "");
+// 2. Initiate Payment via URL Params (/initiate/:orderId)
+export const initiatePaymentWithParam = async (req: Request, res: Response) => {
+  const { orderId } = req.params;
+  const user = (req as any).user;
+
+  const order = await prisma.rentalOrder.findUnique({
+    where: { id: String(orderId) },
+    include: { customer: true },
+  });
+
+  if (!order) {
+    throw new AppError(404, "Rental order not found");
+  }
+
+  if (order.customerId !== user.id) {
+    throw new AppError(403, "You are not authorized to pay for this order");
+  }
+
+  const session = await initSSLCommerzSession(order, user);
+
+  res.status(200).json({
+    success: true,
+    message: "Payment successfully Completed",
+    ...session,
+  });
+};
+
+// 3. Confirm / Verify Payment Callback (Success / Fail / Cancel Webhook)
+export const confirmPayment = async (req: Request, res: Response) => {
+  const { orderId, status } = req.query;
+  const paymentBody = req.body; // SSLCommerz IPN/POST Data
+
+  const order = await prisma.rentalOrder.findUnique({
+    where: { id: String(orderId) },
+  });
+
+  if (!order) {
+    throw new AppError(404, "Order not found during payment verification");
+  }
+
+  if (status === "success" || paymentBody?.status === "VALID") {
+    const sslcz = new SSLCommerzPayment(store_id, store_passwd, is_live);
+    const validationResponse = await sslcz.validate({
+      val_id: paymentBody?.val_id,
+    });
+
+    if (validationResponse?.status === "VALID" || status === "success") {
+      await prisma.rentalOrder.update({
+        where: { id: String(orderId) },
+        data: { status: "PAID" as any },
+      });
+
+      return res.redirect(
+        `${process.env.CLIENT_BASE_URL || "http://localhost:3000"}/payment/success?orderId=${orderId}`
+      );
+    }
+  }
 
   await prisma.rentalOrder.update({
-    where: { id: orderId },
+    where: { id: String(orderId) },
     data: { status: "CANCELLED" as any },
   });
 
   return res.redirect(
-    `${process.env.CLIENT_BASE_URL || "http://localhost:3000"}/payment/cancel?orderId=${orderId}`,
+    `${process.env.CLIENT_BASE_URL || "http://localhost:3000"}/payment/failed?orderId=${orderId}`
   );
 };
 
-export const paymentIPN = async (req: Request, res: Response) => {
-  const { status, val_id } = req.body;
+// 4. Get User's Payment History
+export const getMyPaymentHistory = async (req: Request, res: Response) => {
+  const user = (req as any).user;
 
-  if (status === "VALID") {
-    const sslcz = new SSLCommerzPayment(store_id, store_passwd, is_live);
-    await sslcz.validate({ val_id });
-  }
-
-  res.status(200).send("IPN Received");
-};
-
-export const getPaymentStatus = async (req: Request, res: Response) => {
-  const orderId = String(req.params.orderId || "");
-
-  const order = await prisma.rentalOrder.findUnique({
-    where: { id: orderId },
+  const ordersWithPayments = await prisma.rentalOrder.findMany({
+    where: { customerId: user.id },
     select: {
       id: true,
       totalPrice: true,
       status: true,
       createdAt: true,
+      orderItems: {
+        include: {
+          gear: {
+            select: { id: true, title: true },
+          },
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  res.status(200).json({
+    success: true,
+    message: "Payment history fetched successfully",
+    data: ordersWithPayments,
+  });
+};
+
+// 5. Get Payment Details by Order ID
+export const getPaymentDetails = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const user = (req as any).user;
+
+  const paymentDetails = await prisma.rentalOrder.findUnique({
+    where: { id: String(id) },
+    include: {
+      customer: {
+        select: { id: true, name: true, email: true },
+      },
+      orderItems: {
+        include: { gear: true },
+      },
     },
   });
 
-  if (!order) {
-    throw new AppError(404, "Order not found");
+  if (!paymentDetails) {
+    throw new AppError(404, "Payment details not found for this order");
+  }
+
+  if (paymentDetails.customerId !== user.id && user.role !== "admin" && user.role !== "ADMIN") {
+    throw new AppError(403, "Unauthorized to view these payment details");
   }
 
   res.status(200).json({
     success: true,
-    data: {
-      orderId: order.id,
-      amount: order.totalPrice,
-      paymentStatus: order.status,
-      createdAt: order.createdAt,
-    },
+    message: "Payment details fetched successfully",
+    data: paymentDetails,
   });
 };

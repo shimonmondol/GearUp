@@ -3,7 +3,7 @@ import { OrderStatus } from "@prisma/client";
 import prisma from "../config/prisma";
 import { AppError } from "../utils/AppError";
 
-// Create Review (Only after rental return)
+// 1. Create Review (Only after rental return)
 export const createReview = async (req: Request, res: Response) => {
   const user = (req as any).user;
   const { gearId, rating, comment } = req.body;
@@ -31,7 +31,7 @@ export const createReview = async (req: Request, res: Response) => {
   const completedOrder = await prisma.rentalOrder.findFirst({
     where: {
       customerId: user.id,
-      status: OrderStatus.RETURNED, // 👈 অথবা আপনার স্কিমা অনুযায়ী OrderStatus.COMPLETED
+      status: OrderStatus.RETURNED,
       orderItems: {
         some: {
           gearId: String(gearId),
@@ -83,5 +83,57 @@ export const createReview = async (req: Request, res: Response) => {
     success: true,
     message: "Review submitted successfully!",
     data: newReview,
+  });
+};
+
+// 2. Get All Reviews for a Specific Gear Item
+export const getGearReviews = async (req: Request, res: Response) => {
+  const { gearId } = req.params;
+
+  const reviews = await prisma.review.findMany({
+    where: { gearId: String(gearId) },
+    include: {
+      user: {
+        select: { id: true, name: true },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  res.status(200).json({
+    success: true,
+    message: "Reviews fetched successfully",
+    data: reviews,
+  });
+};
+
+// 3. Delete a Review (Only Author or Admin)
+export const deleteReview = async (req: Request, res: Response) => {
+  const { id } = req.params; // Review ID
+  const user = (req as any).user;
+
+  // 1. Review ডাটাবেজে আছে কি না চেক
+  const existingReview = await prisma.review.findUnique({
+    where: { id: String(id) },
+  });
+
+  if (!existingReview) {
+    throw new AppError(404, "Review not found");
+  }
+
+  // 2. Authorization Check (যে রিভিউ দিয়েছে অথবা অ্যাডমিন ডিলিট করতে পারবে)
+  const isAdmin = user.role === "admin" || user.role === "ADMIN";
+  if (existingReview.userId !== user.id && !isAdmin) {
+    throw new AppError(403, "You are not authorized to delete this review");
+  }
+
+  // 3. Delete Review Record
+  await prisma.review.delete({
+    where: { id: String(id) },
+  });
+
+  res.status(200).json({
+    success: true,
+    message: "Review deleted successfully!",
   });
 };
