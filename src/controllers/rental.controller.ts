@@ -8,6 +8,7 @@ const store_id = process.env.SSL_STORE_ID || "testbox";
 const store_passwd = process.env.SSL_STORE_PASSWORD || "qwerty";
 const is_live = process.env.SSL_IS_LIVE === "true";
 
+// 1. Create a New Rental Order
 export const createRentalOrder = async (req: Request, res: Response) => {
   const { startDate, endDate, gearItems } = req.body || {};
   const user = (req as any).user;
@@ -18,7 +19,7 @@ export const createRentalOrder = async (req: Request, res: Response) => {
 
   const days = Math.ceil(
     (new Date(endDate).getTime() - new Date(startDate).getTime()) /
-      (1000 * 60 * 60 * 24)
+      (1000 * 60 * 60 * 24),
   );
 
   if (days <= 0) {
@@ -33,7 +34,7 @@ export const createRentalOrder = async (req: Request, res: Response) => {
     if (!gear || gear.stockQuantity < item.quantity) {
       throw new AppError(
         400,
-        `Item "${gear?.title || "Unknown"}" is out of stock`
+        `Item "${gear?.title || "Unknown"}" is out of stock`,
       );
     }
     total += gear.pricePerDay * item.quantity * days;
@@ -46,7 +47,7 @@ export const createRentalOrder = async (req: Request, res: Response) => {
         startDate: new Date(startDate),
         endDate: new Date(endDate),
         totalPrice: total,
-        status: OrderStatus.PLACED, // 👈 Prisma Enum ভ্যালু ব্যবহার করা হলো
+        status: OrderStatus.PLACED,
       },
     });
 
@@ -103,5 +104,136 @@ export const createRentalOrder = async (req: Request, res: Response) => {
     message: "Order placed successfully. Complete payment via SSLCommerz link.",
     orderId: order.id,
     checkoutUrl: sslResponse.GatewayPageURL,
+  });
+};
+
+// 2. Get All Rental Orders for Logged-in Customer
+export const getMyRentalOrders = async (req: Request, res: Response) => {
+  const user = (req as any).user;
+
+  const orders = await prisma.rentalOrder.findMany({
+    where: { customerId: user.id },
+    include: {
+      orderItems: {
+        include: {
+          gear: {
+            select: {
+              id: true,
+              title: true,
+              pricePerDay: true,
+              imageUrl: true,
+            },
+          },
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  res.status(200).json({
+    success: true,
+    message: "My rental orders fetched successfully",
+    data: orders,
+  });
+};
+
+// 3. Get All Rental Orders (Admin Only)
+export const getAllRentalOrders = async (req: Request, res: Response) => {
+  const orders = await prisma.rentalOrder.findMany({
+    include: {
+      customer: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      },
+      orderItems: {
+        include: {
+          gear: {
+            select: {
+              id: true,
+              title: true,
+              pricePerDay: true,
+            },
+          },
+        },
+      },
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
+
+  res.status(200).json({
+    success: true,
+    message: "All rental orders fetched successfully",
+    data: orders,
+  });
+};
+
+// 4. Get Single Rental Order Details
+export const getRentalOrderById = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const user = (req as any).user;
+
+  const order = await prisma.rentalOrder.findUnique({
+    where: { id: String(id) },
+    include: {
+      orderItems: {
+        include: { gear: true },
+      },
+      customer: {
+        select: { id: true, name: true, email: true },
+      },
+    },
+  });
+
+  if (!order) {
+    throw new AppError(404, "Rental order not found");
+  }
+
+  // Authorization check (Customer can only view their own order, Admin can view all)
+  if (
+    order.customerId !== user.id &&
+    user.role !== "admin" &&
+    user.role !== "ADMIN"
+  ) {
+    throw new AppError(403, "You do not have permission to view this order");
+  }
+
+  res.status(200).json({
+    success: true,
+    message: "Rental order details fetched successfully",
+    data: order,
+  });
+};
+
+// 5. Update Order Status (Admin / Owner Only - e.g., Mark as RETURNED)
+export const updateOrderStatus = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { status } = req.body;
+
+  if (!status || !Object.values(OrderStatus).includes(status)) {
+    throw new AppError(400, "Invalid or missing order status");
+  }
+
+  const existingOrder = await prisma.rentalOrder.findUnique({
+    where: { id: String(id) },
+  });
+
+  if (!existingOrder) {
+    throw new AppError(404, "Rental order not found");
+  }
+
+  const updatedOrder = await prisma.rentalOrder.update({
+    where: { id: String(id) },
+    data: { status },
+  });
+
+  res.status(200).json({
+    success: true,
+    message: `Order status updated to ${status} successfully!`,
+    data: updatedOrder,
   });
 };
