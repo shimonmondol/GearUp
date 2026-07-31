@@ -20,11 +20,14 @@ enum UserStatus {
 
 enum OrderStatus {
   PLACED
+  PENDING
   CONFIRMED
+  APPROVED
   PAID
   PICKED_UP
   RETURNED
   CANCELLED
+  COMPLETED
 }
 
 enum PaymentStatus {
@@ -57,6 +60,20 @@ model Category {
   name      String     @unique
   slug      String     @unique
   gearItems GearItem[]
+}
+
+// Review Table
+model Review {
+  id        String   @id @default(uuid())
+  rating    Int      // 1 to 5
+  comment   String?
+  gearId    String
+  gear      GearItem @relation(fields: [gearId], references: [id])
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([userId, gearId])
 }
 
 // GearItems Table
@@ -122,18 +139,4 @@ model Payment {
 
   // Relations
   order RentalOrder @relation(fields: [orderId], references: [id])
-}
-
-// Reviews Table
-model Review {
-  id         String   @id @default(uuid())
-  gearId     String
-  customerId String
-  rating     Int
-  comment    String
-  createdAt  DateTime @default(now())
-
-  // Relations
-  gear     GearItem @relation(fields: [gearId], references: [id], onDelete: Cascade)
-  customer User     @relation(fields: [customerId], references: [id])
 }
